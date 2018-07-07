@@ -25,6 +25,7 @@ uint32_t atomicExch(uint32_t *x, uint32_t y);
 uint32_t atomicAdd(uint32_t *x, uint32_t y);
 void __syncthreads(void);
 void __threadfence(void);
+void __threadfence_system(void);
 #define __ldg(x) (*(x))
 #endif
 
