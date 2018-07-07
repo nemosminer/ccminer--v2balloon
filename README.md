@@ -1,4 +1,4 @@
-# ccminer - With Balloon algo + moany others
+# ccminer - With Balloon algo + many others
 
 Based on Christian Buchner's &amp; Christian H.'s CUDA project
 Created by monkins1010 
