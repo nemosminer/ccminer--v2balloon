@@ -95,7 +95,7 @@ int scanhash_balloon(int thr_id, uint32_t *pdata,
 				res++;
 
 			}
-			pdata[19] = n;
+			pdata[19] = h_nounce[0];
 			return res;
 		}
 		n++;

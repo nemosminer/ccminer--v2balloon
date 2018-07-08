@@ -24,12 +24,7 @@ __device__ void device_sha256_generic(uint8_t *data, uint8_t *outhash, uint32_t 
 void host_sha256_osol(const __sha256_block_t blk, __sha256_hash_t ctx);
 __global__ void cudaized_multi(struct hash_state *s, int32_t mixrounds, uint64_t *prebuf_le, uint8_t *input, uint32_t len, uint8_t *output, int64_t s_cost, uint32_t max_nonce, int thr_id, uint32_t *winning_nonce, uint32_t num_threads, uint32_t *device_target, uint32_t *is_winning, uint32_t num_blocks, uint8_t *sbufs, uint32_t *d_KNonce2);
 void update_device_data(int thr_id);
-__device__ __forceinline__ uint32_t andorasm(const uint32_t a, const uint32_t b, const uint32_t c);
-__device__ __forceinline__ uint32_t bsg2_0(const uint32_t x);
-__device__ __forceinline__ uint32_t bsg2_1(const uint32_t x);
-__device__ __forceinline__ uint32_t ssg2_0(const uint32_t x);
-__device__ __forceinline__ uint32_t ssg2_1(const uint32_t x);
-static __device__ __forceinline__ uint32_t xor3b2(uint32_t a, uint32_t b, uint32_t c);
+
 
 //#define DEBUG
 //#define CUDA_DEBUG
@@ -266,11 +261,14 @@ uint32_t cuda_balloon(int thr_id, unsigned char *input, unsigned char *output, i
 	hash_state_free(&s);
 
 	*ret_is_winning = host_is_winning;
+	if (host_is_winning == 2) {
+		host_winning_nonce = h_nounce[1];
+
+	}
 	if (host_is_winning == 0) {
 		host_winning_nonce = first_nonce + num_threads*num_blocks - 1;
 
 	}
-
 	return host_winning_nonce;
 }
 
@@ -296,11 +294,13 @@ __global__ void cudaized_multi(struct hash_state *hs, int32_t mixrounds, uint64_
 	uint32_t id = blockDim.x*blockIdx.x + threadIdx.x;
 	uint32_t nonce = ((input[76] << 24) | (input[77] << 16) | (input[78] << 8) | input[79]) + id;
 	//if (nonce > max_nonce || *is_winning) {
-	if (nonce > max_nonce) {
+	if (nonce > max_nonce || resNounce[1] != UINT32_MAX) {
 #ifdef DEBUG_CUDA
 		printf("[Device %d] winning_nonce flag already set, exiting\n", thr_id);
-#endif
+#endif  
+		
 		asm("exit;");
+		
 	}
 	uint8_t local_input[80];
 #ifdef CUDA_OUTPUT
@@ -343,16 +343,16 @@ __global__ void cudaized_multi(struct hash_state *hs, int32_t mixrounds, uint64_
 #ifdef CUDA_OUTPUT
 		memcpy(output, local_output, 32);
 #endif
-		__threadfence_system();
+		//__threadfence_system();
 	//  asm("exit;");
 	}
 	if (((uint32_t*)(local_sbuf + (4095 << 5)))[7] < device_target[7] && *is_winning == 1 && resNounce[0] != nonce) {
-
+		atomicCAS(&resNounce[1], UINT32_MAX, nonce);
 		 
-		resNounce[1] = nonce;
+		//resNounce[1] = nonce;
 		*is_winning = 2;
-			//__threadfence_system();
-		 asm("exit;");
+			__threadfence_system();
+		asm("exit;");		
 	}
 #ifdef DEBUG_CUDA
 	printf("[Device %d] leaving cuda\n", thr_id);
@@ -572,10 +572,6 @@ __device__ void cuda_hash_state_mix(struct hash_state *s, int32_t mixrounds, uin
 #define SIGMA0_256(x)           (ROTR((x), 7) ^ ROTR((x), 18) ^ SHR((x), 3))
 #define SIGMA1_256(x)           (ROTR((x), 17) ^ ROTR((x), 19) ^ SHR((x), 10))
 
-#define E0(x) (ROTR(x,2)^ROTR(x,13)^ROTR(x,22))
-#define E1(x) (ROTR(x,6)^ROTR(x,11)^ROTR(x,25))
-#define O0(x) (ROTR(x,7)^ROTR(x,18)^(x>>3U))
-#define O1(x) (ROTR(x,17)^ROTR(x,19)^(x>>10U))
 
 #define	SHA256ROUND(a, b, c, d, e, f, g, h, i, w)			\
 T1 = h + BIGSIGMA1_256(e) + Ch(e, f, g) + SHA256_CONST(i) + w;	\
