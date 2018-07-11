@@ -24,12 +24,6 @@ __device__ void device_sha256_generic(uint8_t *data, uint8_t *outhash, uint32_t 
 void host_sha256_osol(const __sha256_block_t blk, __sha256_hash_t ctx);
 __global__ void cudaized_multi(struct hash_state *s, int32_t mixrounds, uint64_t *prebuf_le, uint8_t *input, uint32_t len, uint8_t *output, int64_t s_cost, uint32_t max_nonce, int thr_id, uint32_t *winning_nonce, uint32_t num_threads, uint32_t *device_target, uint32_t *is_winning, uint32_t num_blocks, uint8_t *sbufs, uint32_t *d_KNonce2);
 void update_device_data(int thr_id);
-__device__ __forceinline__ uint32_t andorasm(const uint32_t a, const uint32_t b, const uint32_t c);
-__device__ __forceinline__ uint32_t bsg2_0(const uint32_t x);
-__device__ __forceinline__ uint32_t bsg2_1(const uint32_t x);
-__device__ __forceinline__ uint32_t ssg2_0(const uint32_t x);
-__device__ __forceinline__ uint32_t ssg2_1(const uint32_t x);
-static __device__ __forceinline__ uint32_t xor3b2(uint32_t a, uint32_t b, uint32_t c);
 
 //#define DEBUG
 //#define CUDA_DEBUG
@@ -63,8 +57,7 @@ __constant__ const uint32_t __align__(8) __sha256_init[] = {
 	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
 	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 };
-/*
-const uint32_t cpu_K[64] = {
+__constant__ const uint32_t cpu_K[64] = {
 	0x428A2F98U, 0x71374491U, 0xB5C0FBCFU, 0xE9B5DBA5U, 0x3956C25BU, 0x59F111F1U, 0x923F82A4U, 0xAB1C5ED5U,
 	0xD807AA98U, 0x12835B01U, 0x243185BEU, 0x550C7DC3U, 0x72BE5D74U, 0x80DEB1FEU, 0x9BDC06A7U, 0xC19BF174U,
 	0xE49B69C1U, 0xEFBE4786U, 0x0FC19DC6U, 0x240CA1CCU, 0x2DE92C6FU, 0x4A7484AAU, 0x5CB0A9DCU, 0x76F988DAU,
@@ -74,8 +67,7 @@ const uint32_t cpu_K[64] = {
 	0x19A4C116U, 0x1E376C08U, 0x2748774CU, 0x34B0BCB5U, 0x391C0CB3U, 0x4ED8AA4AU, 0x5B9CCA4FU, 0x682E6FF3U,
 	0x748F82EEU, 0x78A5636FU, 0x84C87814U, 0x8CC70208U, 0x90BEFFFAU, 0xA4506CEBU, 0xBEF9A3F7U, 0xC67178F2U
 };
-__constant__ static uint32_t __align__(8) c_K[64];
-extern __shared__  uint32_t s_K[];*/
+
 
 #define PREBUF_LEN 409600
 uint64_t host_prebuf_le[20][PREBUF_LEN / 8];
@@ -296,10 +288,8 @@ __global__ void cudaized_multi(struct hash_state *hs, int32_t mixrounds, uint64_
 	uint32_t id = blockDim.x*blockIdx.x + threadIdx.x;
 	uint32_t nonce = ((input[76] << 24) | (input[77] << 16) | (input[78] << 8) | input[79]) + id;
 	//if (nonce > max_nonce || *is_winning) {
-	if (nonce > max_nonce) {
-#ifdef DEBUG_CUDA
-		printf("[Device %d] winning_nonce flag already set, exiting\n", thr_id);
-#endif
+	if (nonce > max_nonce || *is_winning) {
+
 		asm("exit;");
 	}
 	uint8_t local_input[80];
@@ -327,36 +317,18 @@ __global__ void cudaized_multi(struct hash_state *hs, int32_t mixrounds, uint64_
 	local_s.counter = 0;
 	cuda_hash_state_fill(&local_s, local_input, len, mixrounds, s_cost);
 	cuda_hash_state_mix(&local_s, mixrounds, prebuf_le);
-#ifdef CUDA_OUTPUT
-	cuda_hash_state_extract(&local_s, local_output);
-	if (((uint32_t*)local_output)[7] < device_target[7]) {
-#else
-	if (((uint32_t*)(local_sbuf + (4095 << 5)))[7] < device_target[7] && *is_winning == 0) {
-#endif
-		// Assume winning nonce
 
-		//printf("[Device %d] Winning nonce: %u\n", thr_id, nonce);
+	if (((uint32_t*)(local_sbuf + (4095 << 5)))[7] < device_target[7]) {
+
+		// Assume winning nonce
 
 		*winning_nonce = nonce;
 		*is_winning = 1;
-		resNounce[0] = nonce;
-#ifdef CUDA_OUTPUT
-		memcpy(output, local_output, 32);
-#endif
-		__threadfence_system();
-	//  asm("exit;");
-	}
-	if (((uint32_t*)(local_sbuf + (4095 << 5)))[7] < device_target[7] && *is_winning == 1 && resNounce[0] != nonce) {
 
-		 
-		resNounce[1] = nonce;
-		*is_winning = 2;
-			//__threadfence_system();
-		 asm("exit;");
+		__threadfence_system();
+		asm("exit;");
 	}
-#ifdef DEBUG_CUDA
-	printf("[Device %d] leaving cuda\n", thr_id);
-#endif
+
 	}
 
 
@@ -365,11 +337,13 @@ __device__ void cuda_expand(uint64_t *counter, uint8_t *buf, size_t blocks_in_bu
 	uint8_t *cur = buf + BLOCK_SIZE;
 
 	for (size_t i = 1; i < blocks_in_buf; i++) {
-		cuda_compress(counter, cur, blocks, 1);
+		cuda_compress(counter, cur, blocks,1);
 		*blocks += BLOCK_SIZE;
 		cur += BLOCK_SIZE;
 	}
 }
+
+
 
 __device__ void cuda_compress(uint64_t *counter, uint8_t *out, const uint8_t *blocks[], size_t blocks_to_comp) {
 	uint8_t data[168];
@@ -478,7 +452,7 @@ __device__ void cuda_hash_state_mix(struct hash_state *s, int32_t mixrounds, uin
 #endif
 }
 
-
+/*
 #define SHA256_CONST(x)         (SHA256_CONST_ ## x)
 
 // constants, as provided in FIPS 180-2 
@@ -554,7 +528,7 @@ __device__ void cuda_hash_state_mix(struct hash_state *s, int32_t mixrounds, uin
 #define SHA256_CONST_61         0xa4506cebU
 #define SHA256_CONST_62         0xbef9a3f7U
 #define SHA256_CONST_63         0xc67178f2U
-
+*/
 
 /* Ch and Maj are the basic SHA2 functions. */
 #define Ch(b, c, d)     (((b) & (c)) ^ ((~b) & (d)))
@@ -572,13 +546,8 @@ __device__ void cuda_hash_state_mix(struct hash_state *s, int32_t mixrounds, uin
 #define SIGMA0_256(x)           (ROTR((x), 7) ^ ROTR((x), 18) ^ SHR((x), 3))
 #define SIGMA1_256(x)           (ROTR((x), 17) ^ ROTR((x), 19) ^ SHR((x), 10))
 
-#define E0(x) (ROTR(x,2)^ROTR(x,13)^ROTR(x,22))
-#define E1(x) (ROTR(x,6)^ROTR(x,11)^ROTR(x,25))
-#define O0(x) (ROTR(x,7)^ROTR(x,18)^(x>>3U))
-#define O1(x) (ROTR(x,17)^ROTR(x,19)^(x>>10U))
-
 #define	SHA256ROUND(a, b, c, d, e, f, g, h, i, w)			\
-T1 = h + BIGSIGMA1_256(e) + Ch(e, f, g) + SHA256_CONST(i) + w;	\
+T1 = h + BIGSIGMA1_256(e) + Ch(e, f, g) + cpu_K[(i)] + w;	\
 d += T1;							\
 T2 = BIGSIGMA0_256(a) + Maj(a, b, c);				\
 h = T1 + T2
@@ -587,7 +556,7 @@ h = T1 + T2
 
 
 __device__ void device_sha256_168byte(uint8_t *data, uint8_t *outhash) {
-	__sha256_block_t block[3];
+	 __sha256_block_t block[3];
 	uint8_t *ptr = (uint8_t*)block;
 	memcpy(ptr, data, 168);
 	ptr += 168;
@@ -596,7 +565,7 @@ __device__ void device_sha256_168byte(uint8_t *data, uint8_t *outhash) {
 	ptr += 21;
 	*ptr++ = 0x5;
 	*ptr++ = 0x40;
-	__sha256_hash_t ohash;
+	 __sha256_hash_t ohash;
 	memcpy(ohash, __sha256_init, 32);
 	uint32_t a = ohash[0];
 	uint32_t b = ohash[1];
@@ -606,9 +575,9 @@ __device__ void device_sha256_168byte(uint8_t *data, uint8_t *outhash) {
 	uint32_t f = ohash[5];
 	uint32_t g = ohash[6];
 	uint32_t h = ohash[7];
-	uint32_t w0, w1, w2, w3, w4, w5, w6, w7;
-	uint32_t w8, w9, w10, w11, w12, w13, w14, w15;
-	uint32_t T1, T2;
+	register uint32_t w0, w1, w2, w3, w4, w5, w6, w7;
+	register uint32_t w8, w9, w10, w11, w12, w13, w14, w15;
+	register uint32_t T1, T2;
 	w0 = LOAD_BIG_32(block[0] + 4 * 0);  SHA256ROUND(a, b, c, d, e, f, g, h, 0, w0);
 	w1 = LOAD_BIG_32(block[0] + 4 * 1);  SHA256ROUND(h, a, b, c, d, e, f, g, 1, w1);
 	w2 = LOAD_BIG_32(block[0] + 4 * 2);  SHA256ROUND(g, h, a, b, c, d, e, f, 2, w2);

@@ -285,7 +285,7 @@ extern int scanhash_deep(int thr_id, uint32_t *pdata,
 //monkins1010
 extern int scanhash_balloon(int thr_id, uint32_t *pdata,
 	uint32_t *ptarget, uint32_t max_nonce,
-	uint32_t *hashes_done);
+	uint32_t *hashes_done, uint32_t num_cuda_threads, uint32_t num_cuda_blocks);
 
 extern int scanhash_doom(int thr_id, uint32_t *pdata,
 	uint32_t *ptarget, uint32_t max_nonce,

@@ -73,7 +73,8 @@ void cuda_print_devices();
 void cuda_get_device_sm();
 void cuda_reset_device(int thr_id, bool *init);
 uint32_t opt_cuda_syncmode = 0;
-
+uint32_t num_cuda_threads = 128;
+uint32_t num_cuda_blocks = 80;
 #include "nvml.h"
 #ifdef USE_WRAPNVML
 nvml_handle *hnvml = NULL;
@@ -381,6 +382,8 @@ static struct option const options[] =
 	{ "pstate", 1, NULL, 1072 },
 	{ "plimit", 1, NULL, 1073 },
 	{ "logfile", 1, NULL, 1074 },
+	{ "cuda_threads", 1, NULL, 1102 },
+	{ "cuda_blocks", 1, NULL, 1101 },
 	{ 0, 0, 0, 0 }
 };
 
@@ -1688,7 +1691,7 @@ static void *miner_thread(void *userdata)
 			//monkins1010
 		case ALGO_BALLOON:
 			rc = scanhash_balloon(thr_id, work.data, work.target,
-				max_nonce, &hashes_done);
+				max_nonce, &hashes_done, num_cuda_threads, num_cuda_blocks);
 			break;
 
 		case ALGO_C11:
@@ -1820,9 +1823,6 @@ static void *miner_thread(void *userdata)
 				rc = scanhash_neoscrypt(have_stratum, thr_id, work.data, work.target, max_nonce, &hashes_done);
 			break;
 
-		case ALGO_SIA:
-			rc = scanhash_balloon(thr_id, work.data, work.target, max_nonce, &hashes_done);
-			break;
 
 		default:
 			/* should never happen */
@@ -2708,6 +2708,18 @@ static void parse_arg(int key, char *arg)
 			printf("\nNo logfile name.\nLogging to file is disabled\n ");
 	}
 	break;
+	case 1102: // --cuda_threads
+		v = atoi(arg);
+		if (v < 1 || v > 9999)
+			show_usage_and_exit(1);
+		num_cuda_threads = v;
+		break;
+	case 1101: // --cuda_blocks
+		v = atoi(arg);
+		if (v < 1 || v > 9999)
+			show_usage_and_exit(1);
+		num_cuda_blocks = v;
+		break;
 	default:
 		printf(usage);
 		exit(EXIT_FAILURE);

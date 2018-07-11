@@ -11,8 +11,6 @@
 #include "balloon.h"
 #include "cuda_helper.h"
 uint32_t prev_pdata[20][10];
-uint32_t num_cuda_threads = 128;
-uint32_t num_cuda_blocks = 80;
 extern void balloon_gpu_init(int thr_id);
 uint32_t balloon_cpu_hash(int thr_id, unsigned char *input, uint32_t threads, uint32_t startNounce, uint32_t *h_nounce, uint32_t max_nonce);
 extern void balloon_setBlock_80(int thr_id, void *pdata, const void *ptarget);
@@ -20,7 +18,7 @@ extern void balloon_setBlock_80(int thr_id, void *pdata, const void *ptarget);
 //int scanhash_balloon(int thr_id, struct work *work, uint32_t max_nonce, uint32_t *hashes_done)
 int scanhash_balloon(int thr_id, uint32_t *pdata,
 	uint32_t *ptarget, uint32_t max_nonce,
-	uint32_t *hashes_done)
+	uint32_t *hashes_done, uint32_t num_cuda_threads, uint32_t num_cuda_blocks)
 {
 	static THREAD uint32_t *h_nounce = nullptr;
 

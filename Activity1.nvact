@@ -1,7 +1,7 @@
 ﻿<Model DefinitionId="3a3ca3f4-7ba7-4c09-a182-6ba59bf12599" DisplayName="Analysis Activity" xmlns="clr-namespace:Ark.PropertyModel;assembly=Ark">
-    <Property Name="ActivityType" Value="SystemTrace" />
     <Property Name="Application" Value="D:\15 raven\ccminer-8.21\ccminer-8.21\Release\x64\ccminer.exe" />
-    <Property Name="Arguments" Value="-a balloon -o stratum+tcp://beastpool.com:6533 -u dQ4A9GUk23h5Tm3HJZttg9brNaPCjFiutr -p c=DEFT -D -P" />
+    <Property Name="Arguments" Value="-a balloon -o stratum+tcp://beastpool.com:6533 -u dJM6bVWbZAkg5xDxTjD7cb8uEwaUJdmZh2 -p c=DEFT" />
+    <Property Name="EnableCudaActiveWarpTimeTrace" Value="True" />
     <Property Name="EnableCudaApiContextAttachDetach" Value="True" />
     <Property Name="EnableCudaApiContextManagement" Value="True" />
     <Property Name="EnableCudaApiD3D10Interop" Value="True" />
@@ -36,6 +36,7 @@
     <Property Name="EnableCudaRuntimeApiGraphicsInterop" Value="True" />
     <Property Name="EnableCudaRuntimeApiMemoryManagement" Value="True" />
     <Property Name="EnableCudaRuntimeApiMemoryOperations" Value="True" />
+    <Property Name="EnableCudaRuntimeApiNestedDriverCalls" Value="True" />
     <Property Name="EnableCudaRuntimeApiOpenGlInterop" Value="True" />
     <Property Name="EnableCudaRuntimeApiPeerAccess" Value="True" />
     <Property Name="EnableCudaRuntimeApiProfiler" Value="True" />
